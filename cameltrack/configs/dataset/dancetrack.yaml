@@ -1,0 +1,27 @@
+# DanceTrack数据集配置
+defaults:
+  - default
+
+# 数据集目标类，使用TrackLab的DanceTrack数据集包装器
+_target_: tracklab.datasets.DanceTrack
+
+# 数据集路径 - 请根据您的实际路径修改
+dataset_path: "${data_dir}/DanceTrack"
+
+# 评估集设置，可选: train, val, test
+eval_set: val
+
+# 数据集分割
+splits:
+  - train
+  - val 
+  - test
+
+# 图像尺寸设置
+image_size: [1080, 1920]  # [height, width]
+
+# 是否使用公开检测结果
+use_public_detections: false
+
+# 是否使用真值标注
+use_ground_truth: false

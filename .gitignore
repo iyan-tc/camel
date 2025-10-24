@@ -164,7 +164,7 @@ dmypy.json
 
 # pytype static type analyzer
 .pytype/
-
+/outputs/
 # Cython debug symbols
 cython_debug/
 
@@ -190,10 +190,13 @@ cython_debug/
 
 # Ruff stuff:
 .ruff_cache/
-
+data/
 # PyPI configuration file
 .pypirc
-
+media/
+*.mp4
+*.pklz
+/pretrained_models/
 # Cursor
 #  Cursor is an AI-powered code editor. `.cursorignore` specifies files/directories to
 #  exclude from AI features like autocomplete and code analysis. Recommended for sensitive data

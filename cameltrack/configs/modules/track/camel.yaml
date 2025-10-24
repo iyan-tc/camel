@@ -1,0 +1,226 @@
+# CAMELTrack 跟踪器的目标类，用于实例化跟踪器对象
+_target_: cameltrack.CAMELTrack
+
+# 是否启用训练模式，false表示仅用于推理
+training_enabled: false
+
+# 预训练模型检查点路径，使用模型目录下的 DanceTrack 专用模型
+checkpoint_path: "${model_dir}/camel/camel_bbox_app_kps_dancetrack.ckpt"
+
+# 可用的预训练检查点列表：
+# camel_bbox_app_global.ckpt - 全局通用模型
+# camel_bbox_app_kps_dancetrack.ckpt - DanceTrack 数据集专用模型（包含关键点）
+# camel_bbox_app_kps_sportsmot.ckpt - SportsMOT 数据集专用模型（包含关键点）
+# camel_bbox_app_kps_mot17.ckpt - MOT17 数据集专用模型（包含关键点）
+# camel_bbox_app_kps_posetrack21.ckpt - PoseTrack21 数据集专用模型（包含关键点）
+# camel_bbox_bee24.ckpt - BEE24 数据集专用模型
+# camel_bbox_app_dancetrack.ckpt - DanceTrack 数据集专用模型（不含关键点）
+
+# 覆盖 CAMEL 模型的默认配置参数
+override_camel_cfg:
+  # 检测与轨迹匹配的相似度阈值，不同数据集的推荐值：
+  # DanceTrack/SportsMOT: 0.1 | MOT17: 0.475 | PoseTrack: 0.45 | BEE24: 0.6
+  sim_threshold: 0.1
+
+# ==================== 轨迹管理参数 ====================
+# 检测置信度的最小阈值，低于此值的检测将被忽略
+min_det_conf: 0.4
+
+# 初始化新轨迹所需的最小检测置信度，通常高于 min_det_conf
+min_init_det_conf: 0.6
+
+# 轨迹被认为有效所需的最小命中次数，0表示立即激活
+min_num_hits: 0
+
+# 轨迹在被删除前允许的最大连续未命中帧数
+max_wo_hits: 150
+
+# 时序编码器的轨迹画廊大小，即保存的历史检测数量上限
+max_track_gallery_size: 50
+
+# ==================== CAMEL 模型配置 ====================
+CAMEL:
+  # CAMEL 模型的目标类
+  _target_: cameltrack.CAMEL
+  
+  # 检测与轨迹匹配的相似度阈值 (范围: 0.0 到 1.0)
+  sim_threshold: 0.1
+  
+  # 是否使用计算得出的动态相似度阈值，false表示使用固定阈值
+  use_computed_sim_threshold: false
+  
+  # ==================== GAFFE 模块配置 ====================
+  # GAFFE (Graph Attention Feature Fusion Engine) - 图注意力特征融合引擎
+  gaffe:
+    _target_: cameltrack.architecture.GAFFE
+    emb_dim: 1024          # 嵌入维度，特征向量的大小
+    n_heads: 8             # 多头注意力机制的头数
+    n_layers: 4            # Transformer 层数
+    dim_feedforward: 2048  # 前馈网络的隐藏层维度
+    checkpoint_path: null  # GAFFE 模块的检查点路径，null表示使用随机初始化
+  
+  # ==================== 时序编码器配置 ====================
+  temporal_encoders:
+    # 外观特征编码器 - 处理 ReID 外观特征
+    app_encoder:
+      _target_: cameltrack.architecture.TemporalEncoder
+      hidden_dim: 512        # 隐藏层维度
+      n_heads: 8             # 注意力头数
+      n_layers: 4            # Transformer 层数
+      dim_feedforward: 1024  # 前馈网络维度
+      checkpoint_path: null  # 检查点路径
+      det_tokenizer:
+        # 部位嵌入线性投影器，用于处理人体部位特征
+        _target_: cameltrack.architecture.PartsEmbeddingsLinProj
+        use_parts: true      # 是否使用人体部位信息
+    
+    # 关键点编码器 - 处理人体姿态关键点
+    kp_encoder:
+      _target_: cameltrack.architecture.TemporalEncoder
+      hidden_dim: 128        # 隐藏层维度（较小，因为关键点特征相对简单）
+      n_heads: 8             # 注意力头数
+      n_layers: 4            # Transformer 层数
+      dim_feedforward: 256   # 前馈网络维度
+      checkpoint_path: null  # 检查点路径
+      det_tokenizer:
+        # 关键点线性投影器
+        _target_: cameltrack.architecture.KeypointsLinProj
+        use_conf: false      # 是否使用关键点置信度信息
+    
+    # 边界框编码器 - 处理检测框的几何信息
+    bbox_encoder:
+      _target_: cameltrack.architecture.TemporalEncoder
+      hidden_dim: 64         # 隐藏层维度（最小，因为边界框特征简单）
+      n_heads: 8             # 注意力头数
+      n_layers: 4            # Transformer 层数
+      dim_feedforward: 128   # 前馈网络维度
+      checkpoint_path: null  # 检查点路径
+      det_tokenizer:
+        # 边界框线性投影器
+        _target_: cameltrack.architecture.BBoxLinProj
+        use_conf: true       # 是否使用检测置信度信息
+
+  # ==================== 优化器配置 ====================
+  optimizer:
+    init_lr: 0.0001        # 初始学习率
+    weight_decay: 0.0001   # 权重衰减系数，用于正则化防止过拟合
+
+# ==================== 训练配置 ====================
+train_cfg:
+  # 是否使用 Weights & Biases 进行实验跟踪，继承自全局配置
+  use_wandb: ${use_wandb}
+  
+  # 是否使用彩色终端输出，继承自全局配置
+  use_rich: ${use_rich}
+  
+  # 是否仅进行评估而不训练
+  evaluate_only: false
+  
+  # 模型选择标准，"last" 表示使用最后一个 epoch 的模型
+  model_selection_criteria: last
+  
+  # PyTorch Lightning 训练器配置
+  pl_trainer:
+    max_epochs: 2              # 最大训练轮数
+    precision: 32              # 数值精度，32表示使用 float32
+    gradient_clip_val: 0       # 梯度裁剪值，0表示不进行梯度裁剪
+    accumulate_grad_batches: 1 # 梯度累积批次数，1表示每个批次都更新梯度
+    enable_progress_bar: true  # 是否显示训练进度条
+    enable_model_summary: false # 是否显示模型结构摘要
+    profiler: null             # 性能分析器，null表示不使用
+    num_sanity_val_steps: 0    # 训练前的验证步数，用于检查代码正确性
+    log_every_n_steps: 50      # 每隔多少步记录一次日志
+    check_val_every_n_epochs: 1 # 每隔多少个 epoch 进行一次验证
+    val_check_interval: null   # 验证检查间隔，null表示使用默认值
+    fast_dev_run: false        # 是否进行快速开发运行（仅运行少量批次用于调试）
+
+# ==================== 数据模块配置 ====================
+datamodule_cfg:
+  # CAMEL 数据模块的目标类
+  _target_: cameltrack.train.CAMELDataModule
+  
+  # ==================== 批次变换配置 ====================
+  # 在批次级别应用的数据增强变换
+  batch_transforms:
+    train:
+      # 组合多个变换
+      _target_: cameltrack.train.transforms.Compose
+      transforms:
+      # 外观嵌入噪声：向 ReID 特征添加噪声以提高鲁棒性
+      - _target_: cameltrack.train.transforms.AppEmbNoise
+        alpha: 0.4         # 噪声强度系数
+      
+      # 关键点抖动：对关键点坐标添加小幅随机扰动
+      - _target_: cameltrack.train.transforms.KeypointsShake
+        alpha: 0.05        # 抖动强度系数
+      
+      # 边界框抖动：对检测框坐标添加小幅随机扰动
+      - _target_: cameltrack.train.transforms.BBoxShake
+        alpha: 0.05        # 抖动强度系数
+  
+  # ==================== 轨迹变换配置 ====================
+  # 在轨迹级别应用的数据增强变换
+  tracklet_transforms:
+    train:
+      # 组合多个变换
+      _target_: cameltrack.train.transforms.Compose
+      transforms:
+      # 限制最大观测数量：截断过长的轨迹
+      - _target_: cameltrack.train.transforms.MaxNumObs
+        max_num_obs: 150   # 每个轨迹的最大观测数量
+      
+      # 特征丢弃：随机丢弃某些特征以提高泛化能力
+      - _target_: cameltrack.train.transforms.DropoutFeatures
+        p_drop_app: 0.4    # 外观特征丢弃概率
+        p_drop_bbox: 0.1   # 边界框特征丢弃概率
+        p_drop_kps: 0.1    # 关键点特征丢弃概率
+      
+      # 概率性变换：根据概率随机选择应用哪种变换
+      - _target_: cameltrack.train.transforms.ProbabilisticTransform
+        probs:             # 各变换的选择概率
+        - 0.4              # 零星交换的概率
+        - 0.4              # 零星丢弃的概率
+        - 0.1              # 遮挡交换的概率
+        transforms:
+        # 零星交换：模拟 ID 切换，随机交换轨迹中的检测
+        - _target_: cameltrack.train.transforms.SwapSporadic
+          p_swap: 0.2      # 交换概率
+          sigma: 50        # 高斯分布的标准差
+          method: gaussian # 采样方法
+        
+        # 零星丢弃：模拟检测丢失，随机丢弃轨迹中的检测
+        - _target_: cameltrack.train.transforms.DropoutSporadic
+          p_drop: 0.2      # 丢弃概率
+          sigma: 50        # 高斯分布的标准差
+          method: gaussian # 采样方法
+        
+        # 遮挡交换：模拟遮挡情况下的 ID 切换
+        - _target_: cameltrack.train.transforms.SwapOccluded
+          p_swap: 0.5      # 交换概率
+          min_iou: 0.5     # 最小 IoU 阈值，用于判断遮挡
+  sampler: simple
+  sampler_args:
+    fill_samples: true
+  multi_dataset_training: false
+  num_videos: null
+  num_workers: ${num_cores}
+  max_length: 50
+  batch_size: 8
+  num_samples: 32
+  samples_per_video: 100
+  train_add_val: false
+  dataset_splits:
+  - train
+  - val
+  name: camel
+  path: "${dataset.dataset_path}/states/train_camel"
+  tracker_states:
+    train: "${dataset.dataset_path}/states/train.pklz"
+    val: "${dataset.dataset_path}/states/val.pklz"
+  dataset_transforms:
+  - add_detections
+  - add_last_obs_counter
+  - add_occlusions
+  - add_dim_image
+
+_recursive_: false

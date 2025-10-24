@@ -1,0 +1,16 @@
+git clone git@github.com:TrackingLaboratory/CAMELTrack.git
+uv venv --python 3.12
+source .venv/bin/activate
+uv run pip install -e .
+uv run tracklab -cn cameltrack
+得到pklz:
+uv run tracklab -cn cameltrack dataset=dancetrack dataset.eval_set=train
+uv run tracklab -cn cameltrack dataset=dancetrack dataset.eval_set=val
+uv run tracklab -cn cameltrack dataset=dancetrack dataset.eval_set=test
+训练：
+uv run tracklab -cn cameltrack_train dataset=dancetrack
+跟踪：
+uv run tracklab -cn cameltrack dataset=dancetrack dataset.eval_set=test modules.track.checkpoint_path="/public/home/gufei/lj/camel/pretrained_models/camel/camel_bbox_app_kps_dancetrack.ckpt"
+
+
+我想要设计一个能够根据环境自适应调整线索权重的人物多目标跟踪模型，针对现在启发式算法不适用于Dancetrack等运动不规则数据集，端到端方法不适用于MOT17/20等行人数据集的问题；计划使用目标框线索、外观线索、关键点线索（轨迹层面），判断当前环境适用于哪个线索，将此线索得到的成本矩阵的权值调大，接着三个线索对应的成本矩阵加权相加，使用匈牙利匹配进行匹配。

@@ -1,0 +1,31 @@
+[project]
+name = "CamelTrack"
+version = "1.0"
+description = "Official implementation of CAMELTrack: Context-Aware Multi-cue ExpLoitation for Online Multi-Object Tracking."
+authors = [
+    {name = "Baptiste Standaert", email = "baptiste.standaert@uclouvain.be"},
+    {name = "Victor Joos", email = "victorjoosdtb@gmail.com"},
+    {name = "Vladimir Somers", email = "vladimir.somers@uclouvain.be"},
+]
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "tracklab",
+    "transformers",
+    "pytorch-metric-learning",
+    "ordered-set",
+    "overrides",
+    "wandb",
+    "torchreid@git+https://github.com/victorjoos/keypoint_promptable_reidentification",
+]
+
+[project.entry-points.tracklab_plugin]
+cameltrack = "cameltrack.utils.config_finder:ConfigFinder"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["cameltrack*"]
+exclude = []
